@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import mainpage from '../pages/mainpage.vue';           
 import mapexplorer from '../pages/mapexplorer.vue';
-import Story from '../pages/Story.vue';  
+import storyview from '../pages/storyview.vue';  
 import timeline from '../pages/timeline.vue';
 
 const routes = [
@@ -20,13 +20,13 @@ const routes = [
         component: mapexplorer,
     },
     {
-        path: '/Story',
-        name: 'Story',
-        component: Story,
+        path: '/storyview',
+        name: 'StoryView',
+        component: storyview,
     },
     {
         path: '/timeline',
-        name: 'Timeline',
+        name: 'TimeLine',
         component: timeline,
     }
 ];

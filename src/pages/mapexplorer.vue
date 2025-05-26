@@ -17,7 +17,5 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import mapboxgl from 'mapbox-gl'
 
-// 类似实现...
 </script>

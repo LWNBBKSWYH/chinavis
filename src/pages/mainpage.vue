@@ -1,5 +1,8 @@
 <template>
     <div class="main-container">
+        <!-- 长城背景层 -->
+        <div class="great-wall-bg"></div>
+        <!-- 加载动画 -->
         <h1 v-if="!isEarthLoaded" class="loading-text">Loading Main Page...</h1>
         <!-- 3D地球容器 -->
         <div ref="earthContainer" class="earth-container"></div>
@@ -19,18 +22,18 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
-import TWEEN from '@tweenjs/tween.js'
+import * as TWEEN from '@tweenjs/tween.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const earthContainer = ref(null)
 const isEarthLoaded = ref(false)
-
+const tweenGroup = new TWEEN.Group()
 // 导航按钮配置
 const navButtons = [
-    { mode: 'timeline', text: '岁月年轮' },
-    { mode: 'map', text: '雄关漫道' },
-    { mode: 'story', text: '史诗传颂' }
+    { mode: 'TimeLine', text: '岁月年轮' },
+    { mode: 'MapExplorer', text: '雄关漫道' },
+    { mode: 'StoryView', text: '史诗传颂' }
 ]
 
 // Three.js相关变量
@@ -56,10 +59,9 @@ onMounted(() => {
 // 组件卸载时清理
 onUnmounted(() => {
     cancelAnimationFrame(animationId.value)
+    tweenGroup.removeAll() // <-- 清理所有动画
     window.removeEventListener('resize', handleResize)
-    if (renderer.value) {
-        renderer.value.dispose()
-    }
+    if (renderer.value) renderer.value.dispose()
 })
 
 function initThreeJS() {
@@ -155,33 +157,63 @@ function initChinaMarker() {
 }
 
 function initAnimation() {
-    // 初始动画：聚焦中国
-    new TWEEN.Tween(camera.value.position)
+    // 修改后的Tween创建（添加tweenGroup参数）
+    new TWEEN.Tween(camera.value.position, tweenGroup) // <-- 这里传入tweenGroup
         .to({ x: -3, y: 1, z: 8 }, 2500)
         .easing(TWEEN.Easing.Quadratic.Out)
         .start()
-        .onComplete(() => {
-            // 动画完成后开始缓慢旋转
-            animate()
-        })
+        .onComplete(() => animate())
 }
 
-function animate() {
+function enterMode(mode) {
+    // console.log(`Attempting to navigate to: ${mode}`);
+    // new Promise((resolve) => {
+    //     console.log('Starting tween animation...');
+    //     new TWEEN.Tween(camera.value.position, tweenGroup)
+    //         .to({ z: 20 }, 800)
+    //         .easing(TWEEN.Easing.Quadratic.In)
+    //         .onComplete(() => {
+    //             console.log('Tween animation completed');
+    //             resolve();
+    //         })
+    //         .start();
+    // })
+    // .then(() => {
+    //     console.log('Attempting navigation to:', mode);
+    //     return router.push({ name: mode });
+    // })
+    // .then(() => console.log('Navigation succeeded'))
+    // .catch(err => {
+    //     console.error('Navigation error:', err);
+    //     if (err.name === 'NavigationDuplicated') {
+    //         console.log('Navigation duplicated, ignoring');
+    //     }
+    // });
+    console.log('Direct navigation attempt');
+    router.push({ name: mode })
+        .then(() => console.log('Direct navigation succeeded'))
+        .catch(err => console.error('Direct navigation error:', err));
+}
+
+function animate(time) {
+    console.log('Animating frame...');
     animationId.value = requestAnimationFrame(animate)
-    TWEEN.update()
-
-    // 更平滑的旋转
+    console.log('TWEEN group has', tweenGroup.getAll().length, 'active tweens');
+    tweenGroup.update(time) // <-- 使用组实例更新
+    
     earth.value.rotation.y += 0.0005
-
-    // 中国标记的脉动效果
+    
     if (chinaMarker.value) {
-        chinaMarker.value.scale.x = 8 + Math.sin(Date.now() * 0.001) * 0.1
-        chinaMarker.value.scale.y = 8 + Math.sin(Date.now() * 0.001) * 0.1
+        const pulse = performance.now() * 0.001
+        chinaMarker.value.scale.set(
+            8 + Math.sin(pulse) * 0.1,
+            8 + Math.sin(pulse) * 0.1,
+            8
+        )
     }
-
+    
     renderer.value.render(scene.value, camera.value)
 }
-
 function handleResize() {
     camera.value.aspect = earthContainer.value.clientWidth / earthContainer.value.clientHeight;
     camera.value.updateProjectionMatrix();
@@ -189,16 +221,6 @@ function handleResize() {
         earthContainer.value.clientWidth,
         earthContainer.value.clientHeight
     );
-}
-function enterMode(mode) {
-    // 添加转场动画
-    new TWEEN.Tween(camera.value.position)
-        .to({ z: 20 }, 800)
-        .easing(TWEEN.Easing.Quadratic.In)
-        .start()
-        .onComplete(() => {
-            router.push(`/${mode}`)
-        })
 }
 </script>
 
@@ -228,7 +250,7 @@ function enterMode(mode) {
     position: absolute;
     width: 100%;
     height: 100%;
-    opacity: v-bind('isEarthLoaded ? 1 : 0');
+    opacity: v-bind('isEarthLoaded ? 0.9 : 0');
     transition: opacity 0.5s ease;
 }
 
@@ -278,7 +300,50 @@ function enterMode(mode) {
     font-family: 'STXingkai', 'KaiTi', 'SimSun', serif;
     font-weight: 400;
 }
-
+.great-wall-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('/greetwalk.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -1; /* 确保在3D地球下方 */
+    
+    /* 添加滤镜效果使背景更融合 */
+    filter: 
+        brightness(0.4) 
+        contrast(1.2) 
+        sepia(30%) 
+        hue-rotate(-5deg);
+    
+    /* 渐变遮罩使顶部和底部更暗 */
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.8) 0%,
+            rgba(0, 0, 0, 0.3) 50%,
+            rgba(0, 0, 0, 0.8) 100%
+        );
+    }
+}
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .mini-map-container {
+        width: 120px;
+        height: 90px;
+        right: 10px;
+        bottom: 80px; /* 避免与导航按钮重叠 */
+    }
+}
 @keyframes fadeIn {
     from {
         opacity: 0;
